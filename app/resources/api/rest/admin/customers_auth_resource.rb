@@ -10,8 +10,10 @@ class Api::Rest::Admin::CustomersAuthResource < BaseResource
              :src_number_radius_rewrite_result, :dst_number_radius_rewrite_rule, :dst_number_radius_rewrite_result,
              :from_domain, :to_domain, :tag_action_value, :external_id
 
+  paginator :paged
+
   has_one :customer
-  has_one :rateplan
+  has_one :rateplan, class_name: 'Routing::Rateplan'
   has_one :routing_plan, class_name: 'RoutingPlan'
   has_one :gateway
   has_one :account
@@ -26,6 +28,21 @@ class Api::Rest::Admin::CustomersAuthResource < BaseResource
   has_one :transport_protocol, class_name: 'Equipment::TransportProtocol'
 
   filter :name
+
+  relationship_filter :customer
+  relationship_filter :rateplan
+  relationship_filter :routing_plan
+  relationship_filter :gateway
+  relationship_filter :account
+  relationship_filter :dump_level
+  relationship_filter :diversion_policy
+  relationship_filter :pop
+  relationship_filter :dst_numberlist
+  relationship_filter :src_numberlist
+  relationship_filter :tag_action
+  relationship_filter :radius_auth_profile
+  relationship_filter :radius_accounting_profile
+  relationship_filter :transport_protocol
 
   ransack_filter :name, type: :string
   ransack_filter :enabled, type: :boolean
@@ -106,10 +123,11 @@ class Api::Rest::Admin::CustomersAuthResource < BaseResource
       from_domain
       to_domain
       transport_protocol
+      external_id
     ]
   end
 
   def self.creatable_fields(context)
-    updatable_fields(context) + [:external_id]
+    updatable_fields(context)
   end
 end

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 ActiveAdmin.register Routing::Destination, as: 'Destination' do
-  menu parent: 'Routing', priority: 41
+  menu parent: 'Routing', priority: 45
 
   acts_as_audit
   acts_as_clone
@@ -10,41 +10,14 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
   acts_as_quality_stat
   acts_as_stats_actions
   acts_as_async_destroy('Routing::Destination')
-  acts_as_async_update('Routing::Destination',
-                       lambda do
-                         {
-                           enabled: boolean_select,
-                           prefix: 'text',
-                           dst_number_min_length: 'text',
-                           dst_number_max_length: 'text',
-                           routing_tag_mode_id: Routing::RoutingTagMode.pluck(:name, :id),
-                           reject_calls: boolean_select,
-                           quality_alarm: boolean_select,
-                           rateplan_id: Rateplan.pluck(:name, :id),
-                           valid_from: 'datepicker',
-                           valid_till: 'datepicker',
-                           rate_policy_id: DestinationRatePolicy.pluck(:name, :id),
-                           initial_interval: 'text',
-                           initial_rate: 'text',
-                           next_interval: 'text',
-                           next_rate: 'text',
-                           use_dp_intervals: boolean_select,
-                           connect_fee: 'text',
-                           profit_control_mode_id: Routing::RateProfitControlMode.pluck(:name, :id),
-                           dp_margin_fixed: 'text',
-                           dp_margin_percent: 'text',
-                           asr_limit: 'text',
-                           acd_limit: 'text',
-                           short_calls_limit: 'text'
-                         }
-                       end)
+  acts_as_async_update BatchUpdateForm::Destination
 
   acts_as_delayed_job_lock
 
   decorate_with DestinationDecorator
 
   acts_as_export :id, :enabled, :prefix, :dst_number_min_length, :dst_number_max_length,
-                 [:rateplan_name, proc { |row| row.rateplan.try(:name) }],
+                 [:rate_group_name, proc { |row| row.rate_group.try(:name) }],
                  :reject_calls,
                  [:rate_policy_name, proc { |row| row.rate_policy.try(:name) }],
                  :initial_interval, :next_interval,
@@ -61,13 +34,14 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
                  skip_columns: [:routing_tag_ids]
 
   scope :low_quality
+  scope :time_valid
 
   filter :id
   filter :uuid_equals, label: 'UUID'
   filter :enabled, as: :select, collection: [['Yes', true], ['No', false]]
   filter :prefix
   filter :routing_for_contains, as: :string, input_html: { class: 'search_filter_string' }
-  filter :rateplan, input_html: { class: 'chosen' }
+  filter :rate_group, input_html: { class: 'chosen' }
   filter :reject_calls, as: :select, collection: [['Yes', true], ['No', false]]
   filter :initial_rate
   filter :next_rate
@@ -91,17 +65,26 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
          }
 
   filter :external_id_eq, label: 'EXTERNAL_ID'
+  filter :valid_from, as: :date_time_range
+  filter :valid_till, as: :date_time_range
+  filter :rate_policy, input_html: { class: 'chosen' }, collection: proc { Routing::DestinationRatePolicy.pluck(:name, :id) }
+  boolean_filter :reverse_billing
+  filter :initial_interval
+  filter :next_interval
+  filter :asr_limit
+  filter :acd_limit
+  filter :short_calls_limit
 
   acts_as_filter_by_routing_tag_ids
 
-  permit_params :enabled, :prefix, :dst_number_min_length, :dst_number_max_length, :rateplan_id, :next_rate, :connect_fee,
+  permit_params :enabled, :prefix, :dst_number_min_length, :dst_number_max_length, :rate_group_id, :next_rate, :connect_fee,
                 :initial_interval, :next_interval, :dp_margin_fixed,
                 :dp_margin_percent, :rate_policy_id, :reverse_billing, :initial_rate,
                 :reject_calls, :use_dp_intervals, :test, :profit_control_mode_id,
                 :valid_from, :valid_till, :asr_limit, :acd_limit, :short_calls_limit, :batch_prefix,
                 :reverse_billing, :routing_tag_mode_id, routing_tag_ids: []
 
-  includes :rateplan, :rate_policy, :profit_control_mode, :routing_tag_mode, network_prefix: %i[country network]
+  includes :rate_group, :rate_policy, :profit_control_mode, :routing_tag_mode, network_prefix: %i[country network]
 
   action_item :show_rates, only: [:show] do
     link_to 'Show Rates', destination_destination_next_rates_path(resource.id)
@@ -154,7 +137,7 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
 
     column :reject_calls
     column :quality_alarm
-    column :rateplan, sortable: 'rateplans.name'
+    column :rate_group, sortable: 'rate_groups.name'
     column :routing_tags
     column :valid_from, &:decorated_valid_from
     column :valid_till, &:decorated_valid_till
@@ -197,7 +180,7 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
       f.input :dst_number_max_length
       f.input :enabled
       f.input :reject_calls
-      f.input :rateplan, input_html: { class: 'chosen' }
+      f.input :rate_group, input_html: { class: 'chosen' }
 
       f.input :routing_tag_ids, as: :select,
                                 collection: DestinationDecorator.decorate(f.object).routing_tag_options,
@@ -248,7 +231,7 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
           row :network
           row :reject_calls
           row :quality_alarm
-          row :rateplan
+          row :rate_group
           row :routing_tags
           row :routing_tag_mode
           row :valid_from, &:decorated_valid_from

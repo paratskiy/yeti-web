@@ -138,6 +138,8 @@
 #  sign_orig_transport_protocol_id :integer(2)
 #  sign_term_transport_protocol_id :integer(2)
 #  src_area_id                     :integer(4)
+#  src_country_id                  :integer(4)
+#  src_network_id                  :integer(4)
 #  term_call_id                    :string
 #  term_gw_external_id             :bigint(8)
 #  term_gw_id                      :integer(4)
@@ -155,16 +157,18 @@ class Cdr::Cdr < Cdr::Base
   ADMIN_PRELOAD_LIST = %i[
     dialpeer routing_group destination disconnect_initiator
     auth_orig_transport_protocol sign_orig_transport_protocol
-    dst_network destination_rate_policy routing_plan vendor
+    src_network src_country
+    dst_network dst_country
+    destination_rate_policy routing_plan vendor
     term_gw orig_gw customer_auth vendor_acc customer_acc
     dst_area customer rateplan pop src_area lnp_database
-    dump_level dst_country node sign_term_transport_protocol
+    dump_level node sign_term_transport_protocol
   ].freeze
 
   include Partitionable
   self.pg_partition_name = 'PgPartition::Cdr'
 
-  belongs_to :rateplan
+  belongs_to :rateplan, class_name: 'Routing::Rateplan', foreign_key: :rateplan_id
   belongs_to :routing_group
   belongs_to :src_area, class_name: 'Routing::Area', foreign_key: :src_area_id
   belongs_to :dst_area, class_name: 'Routing::Area', foreign_key: :dst_area_id
@@ -172,8 +176,8 @@ class Cdr::Cdr < Cdr::Base
   belongs_to :orig_gw, class_name: 'Gateway', foreign_key: :orig_gw_id
   belongs_to :term_gw, class_name: 'Gateway', foreign_key: :term_gw_id
   belongs_to :destination, class_name: 'Routing::Destination'
+  belongs_to :destination_rate_policy, class_name: 'Routing::DestinationRatePolicy', foreign_key: :destination_rate_policy_id
   belongs_to :dialpeer
-  belongs_to :destination_rate_policy
   belongs_to :customer_auth, class_name: 'CustomersAuth', foreign_key: :customer_auth_id
   belongs_to :vendor_acc, class_name: 'Account', foreign_key: :vendor_acc_id
   belongs_to :customer_acc, class_name: 'Account', foreign_key: :customer_acc_id
@@ -182,10 +186,11 @@ class Cdr::Cdr < Cdr::Base
   belongs_to :disconnect_initiator
   belongs_to :vendor_invoice, class_name: 'Billing::Invoice', foreign_key: :vendor_invoice_id
   belongs_to :customer_invoice, class_name: 'Billing::Invoice', foreign_key: :customer_invoice_id
-  belongs_to :destination_rate_policy, class_name: 'DestinationRatePolicy', foreign_key: :destination_rate_policy_id
   belongs_to :node, class_name: 'Node', foreign_key: :node_id
   belongs_to :pop, class_name: 'Pop', foreign_key: :pop_id
   belongs_to :dump_level
+  belongs_to :src_network, class_name: 'System::Network', foreign_key: :src_network_id
+  belongs_to :src_country, class_name: 'System::Country', foreign_key: :src_country_id
   belongs_to :dst_network, class_name: 'System::Network', foreign_key: :dst_network_id
   belongs_to :dst_country, class_name: 'System::Country', foreign_key: :dst_country_id
   belongs_to :lnp_database, class_name: 'Lnp::Database', foreign_key: :lnp_database_id
@@ -283,7 +288,7 @@ class Cdr::Cdr < Cdr::Base
   end
 
   def attempts
-    if local_tag.empty?
+    if local_tag.blank?
       self.class.where('cdr.id=?', id)
     else
       self.class.where(time_start: time_start).where(local_tag: local_tag).order('routing_attempt desc')
@@ -320,6 +325,16 @@ class Cdr::Cdr < Cdr::Base
     SqlCaller::Cdr.select_value("select pending_events from pgq.get_consumer_info('cdr_billing', 'cdr_billing')")
   end
 
+  scope :routing_tag_ids_array_contains, ->(*tag_id) { where.contains routing_tag_ids: Array(tag_id) }
+
+  scope :tagged, lambda { |value|
+    if ActiveModel::Type::Boolean.new.cast(value)
+      where("routing_tag_ids <> '{}'") # has tags
+    else
+      where("routing_tag_ids = '{}' OR routing_tag_ids IS NULL") # no tags
+    end
+  }
+
   private
 
   def self.ransackable_scopes(_auth_object = nil)
@@ -328,6 +343,8 @@ class Cdr::Cdr < Cdr::Base
       status_eq
       account_id_eq
       routing_tag_ids_include
+      routing_tag_ids_array_contains
+      tagged
     ]
   end
 end

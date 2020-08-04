@@ -12,18 +12,7 @@ ActiveAdmin.register Gateway do
   acts_as_lock
   acts_as_stats_actions
   acts_as_async_destroy('Gateway')
-  acts_as_async_update('Gateway',
-                       lambda do
-                         {
-                           enabled: boolean_select,
-                           priority: 'text',
-                           weight: 'text',
-                           is_shared: boolean_select,
-                           acd_limit: 'text',
-                           asr_limit: 'text',
-                           short_calls_limit: 'text'
-                         }
-                       end)
+  acts_as_async_update BatchUpdateForm::Gateway
 
   acts_as_delayed_job_lock
 
@@ -328,6 +317,12 @@ ActiveAdmin.register Gateway do
   filter :external_id
   filter :radius_accounting_profile, input_html: { class: 'chosen' }
   filter :lua_script, input_html: { class: 'chosen' }
+  boolean_filter :auth_enabled
+  filter :auth_user
+  filter :auth_password
+  filter :incoming_auth_username
+  filter :incoming_auth_password
+  filter :codec_group, input_html: { class: 'chosen' }, collection: proc { CodecGroup.pluck(:name, :id) }
 
   form do |f|
     f.semantic_errors *f.object.errors.keys
@@ -388,8 +383,8 @@ ActiveAdmin.register Gateway do
               f.input :transit_headers_from_origination
               f.input :transit_headers_from_termination
               f.input :sip_interface_name
-              f.input :incoming_auth_username
-              f.input :incoming_auth_password, as: :string, input_html: { autocomplete: 'off' }
+              f.input :incoming_auth_username, hint: "#{link_to('Сlick to fill random username', 'javascript:void(0)', onclick: 'generateCredential(this)')}. #{t('formtastic.hints.gateway.incoming_auth_username')}".html_safe
+              f.input :incoming_auth_password, as: :string, input_html: { autocomplete: 'off' }, hint: link_to('Сlick to fill random password', 'javascript:void(0)', onclick: 'generateCredential(this)')
             end
 
             f.inputs 'Origination' do
@@ -493,7 +488,7 @@ ActiveAdmin.register Gateway do
       end
       tab :radius do
         f.inputs 'RADIUS' do
-          f.input :radius_accounting_profile, input_html: { class: 'chosen' }
+          f.input :radius_accounting_profile, input_html: { class: 'chosen' }, include_blank: 'None'
         end
       end
     end

@@ -105,7 +105,7 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
 
   filter :routing_plan, collection: proc { Routing::RoutingPlan.select(%i[id name]) }, input_html: { class: 'chosen' }
   filter :routing_group, collection: proc { RoutingGroup.select(%i[id name]) }, input_html: { class: 'chosen' }
-  filter :rateplan, collection: proc { Rateplan.select(%i[id name]) }, input_html: { class: 'chosen' }
+  filter :rateplan, collection: proc { Routing::Rateplan.select(%i[id name]) }, input_html: { class: 'chosen' }
 
   filter :internal_disconnect_code, as: :string_eq
   filter :internal_disconnect_reason, as: :string_eq
@@ -139,6 +139,14 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
   filter :pdd
   filter :rtt
   filter :p_charge_info_in, as: :string_eq
+  filter :uuid_equals, label: 'UUID'
+  filter :auth_orig_ip, as: :string
+  filter :sign_orig_ip
+  filter :sign_orig_local_ip
+  filter :sign_term_local_ip
+  filter :sign_term_ip
+
+  acts_as_filter_by_routing_tag_ids routing_tag_ids_covers: false
 
   # X-Accel-Redirect: /protected/iso.img;
   #  location /protected/ {
@@ -175,6 +183,7 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
     redirect_to routing_simulation_path(
       anchor: 'detailed',
       routing_simulation: {
+        auth_id: resource.customer_auth&.require_incoming_auth ? resource.orig_gw_id : nil,
         transport_protocol_id: proto,
         remote_ip: resource.auth_orig_ip,
         remote_port: resource.auth_orig_port,
@@ -286,6 +295,8 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
           column :diversion_in
           column :diversion_out
 
+          column :src_country
+          column :src_network
           column :dst_country
           column :dst_network
 
@@ -456,6 +467,8 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
           row :diversion_in
           row :diversion_out
 
+          row :src_country
+          row :src_network
           row :dst_country
           row :dst_network
 
@@ -651,6 +664,9 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
 
     column :diversion_in
     column :diversion_out
+
+    column :src_country
+    column :src_network
     column :dst_country
     column :dst_network
 
@@ -906,6 +922,8 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
       column :dst_prefix_out
       column :diversion_in
       column :diversion_out
+      column :src_country
+      column :src_network
       column :dst_country
       column :dst_network
       column :node do |row|

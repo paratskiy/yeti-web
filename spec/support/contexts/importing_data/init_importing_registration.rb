@@ -7,10 +7,10 @@ shared_context :init_importing_registration do |args|
     fields = {
       name: 'Com-REG',
       enabled: false,
-      pop_name: 'ME',
-      pop_id: 3,
-      node_name: 'yeti-10',
-      node_id: 10,
+      pop_name: @pop.name,
+      pop_id: @pop.id,
+      node_name: @node.name,
+      node_id: @node.id,
       domain: '2.2.2.2',
       username: '87875678665657',
       display_username: '',
@@ -22,6 +22,7 @@ shared_context :init_importing_registration do |args|
       max_attempts: 123,
       transport_protocol_id: 1,
       proxy_transport_protocol_id: 1,
+      sip_schema_id: 1,
       is_changed: true
     }.merge(args)
 

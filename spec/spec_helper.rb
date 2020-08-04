@@ -2,15 +2,18 @@
 
 # This file is copied to spec/ when you run 'rails generate rspec:install'
 ENV['RAILS_ENV'] ||= 'test'
-require 'coveralls'
-Coveralls.wear_merged! do
-  add_filter 'spec/'
+if ENV['SKIP_COVERAGE'].nil?
+  require 'coveralls'
+  Coveralls.wear_merged! do
+    add_filter 'spec/'
+  end
 end
 
 require File.expand_path('../config/environment', __dir__)
 require 'rspec/rails'
 require 'webmock/rspec'
 require 'pundit/rspec'
+require 'capybara/active_admin/rspec'
 WebMock.disable_net_connect!(
   allow_localhost: true,
   allow: 'chromedriver.storage.googleapis.com'
@@ -53,8 +56,6 @@ RSpec.configure do |config|
   end
 
   config.global_fixtures = [
-    :pops,
-    :nodes,
     'sys.sensor_modes',
     :guiconfig,
     :sortings,
@@ -69,6 +70,9 @@ RSpec.configure do |config|
     :codecs,
     :dump_level,
     :invoice_periods,
+    'class4.customers_auth_dst_number_fields',
+    'class4.customers_auth_src_number_fields',
+    'class4.customers_auth_src_name_fields',
     'class4.dtmf_send_modes',
     'class4.dtmf_receive_modes',
     'class4.gateway_rel100_modes',
@@ -135,7 +139,7 @@ RSpec.configure do |config|
   end
 
   config.before(:suite) do
-    DatabaseCleaner.clean_with :truncation
+    DatabaseCleaner.clean_with(:truncation)
   end
 
   config.before(:suite) do
@@ -170,6 +174,11 @@ RSpec.configure do |config|
 
   config.after(:each) do
     DatabaseCleaner.clean
+  end
+
+  config.expect_with :rspec do |c|
+    #  disable the should syntax...
+    c.syntax = :expect
   end
 end
 

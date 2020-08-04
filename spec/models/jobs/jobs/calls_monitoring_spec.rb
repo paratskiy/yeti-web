@@ -92,7 +92,7 @@ RSpec.describe Jobs::CallsMonitoring do
   end
 
   context '#run!' do
-    let(:node) { Node.take }
+    let(:node) { create(:node) }
 
     let(:cdr_filter_mock) do
       double('Yeti::CdrsFilter', raw_cdrs: [{ 'node_id' => 1 }, { 'node_id' => 2 }])
@@ -317,6 +317,28 @@ RSpec.describe Jobs::CallsMonitoring do
       end
 
       include_examples :drop_calls
+    end
+
+    context 'when GuiConfig.random_disconnect_enable=true' do
+      before do
+        allow(GuiConfig).to receive(:random_disconnect_enable).and_return(true)
+        allow(GuiConfig).to receive(:random_disconnect_length).and_return(max_length)
+      end
+
+      context 'when max_length greater than calls duration' do
+        let(:max_length) { 600 }
+
+        include_examples :keep_calls
+      end
+
+      context 'when duration is nil' do
+        let(:max_length) { 10 }
+        let(:cdr_list_unsorted) do
+          super().map { |r| r.merge('duration' => nil) }
+        end
+
+        include_examples :keep_calls
+      end
     end
 
     context 'Customer calls' do

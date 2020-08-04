@@ -13,7 +13,10 @@ class Api::Rest::Admin::GatewayResource < ::BaseResource
              :dns_srv_failover_timer, :anonymize_sdp, :proxy_media, :single_codec_in_200ok, :transparent_seqno,
              :transparent_ssrc, :force_symmetric_rtp, :symmetric_rtp_nonstop, :symmetric_rtp_ignore_rtcp,
              :force_dtmf_relay, :rtp_ping, :rtp_timeout, :filter_noaudio_streams, :rtp_relay_timestamp_aligning,
-             :rtp_force_relay_cn
+             :rtp_force_relay_cn,
+             :incoming_auth_username, :incoming_auth_password
+
+  paginator :paged
 
   has_one :contractor
   has_one :session_refresh_method
@@ -39,6 +42,29 @@ class Api::Rest::Admin::GatewayResource < ::BaseResource
   has_one :sip_schema, class_name: 'System::SipSchema'
 
   filter :name # DEPRECATED
+
+  relationship_filter :contractor
+  relationship_filter :session_refresh_method
+  relationship_filter :sdp_alines_filter_type
+  relationship_filter :term_disconnect_policy
+  relationship_filter :gateway_group
+  relationship_filter :diversion_policy
+  relationship_filter :pop
+  relationship_filter :codec_group
+  relationship_filter :sdp_c_location
+  relationship_filter :sensor
+  relationship_filter :sensor_level
+  relationship_filter :dtmf_receive_mode
+  relationship_filter :dtmf_send_mode
+  relationship_filter :transport_protocol
+  relationship_filter :term_proxy_transport_protocol
+  relationship_filter :orig_proxy_transport_protocol
+  relationship_filter :rel100_mode
+  relationship_filter :rx_inband_dtmf_filtering_mode
+  relationship_filter :tx_inband_dtmf_filtering_mode
+  relationship_filter :network_protocol_priority
+  relationship_filter :media_encryption_mode
+  relationship_filter :sip_schema
 
   ransack_filter :host, type: :string
   ransack_filter :port, type: :number
@@ -211,6 +237,8 @@ class Api::Rest::Admin::GatewayResource < ::BaseResource
       network_protocol_priority
       media_encryption_mode
       sip_schema
+      incoming_auth_username
+      incoming_auth_password
     ]
   end
 

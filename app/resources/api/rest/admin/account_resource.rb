@@ -9,6 +9,8 @@ class Api::Rest::Admin::AccountResource < BaseResource
              :origination_capacity, :termination_capacity, :total_capacity,
              :send_invoices_to
 
+  paginator :paged
+
   has_one :contractor
   has_one :timezone, class_name: 'System::Timezone'
 
@@ -65,10 +67,11 @@ class Api::Rest::Admin::AccountResource < BaseResource
       vendor_invoice_period
       customer_invoice_template
       vendor_invoice_template
+      external_id
     ]
   end
 
   def self.creatable_fields(context)
-    updatable_fields(context) + [:external_id]
+    updatable_fields(context)
   end
 end

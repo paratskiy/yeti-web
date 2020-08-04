@@ -8,30 +8,7 @@ ActiveAdmin.register CustomersAuth do
   acts_as_safe_destroy
   acts_as_status
   acts_as_async_destroy('CustomersAuth')
-  acts_as_async_update('CustomersAuth',
-                       lambda do
-                         {
-                           enabled: boolean_select,
-                           reject_calls: boolean_select,
-                           transport_protocol_id: Equipment::TransportProtocol.pluck(:name, :id),
-                           ip: 'text',
-                           src_prefix: 'text',
-                           min_src_number_length: 'text',
-                           max_src_number_length: 'text',
-                           dst_prefix: 'text',
-                           min_dst_number_length: 'text',
-                           max_dst_number_length: 'text',
-                           from_domain: 'text',
-                           to_domain: 'text',
-                           x_yeti_auth: 'text',
-                           dst_numberlist_id: Routing::Numberlist.pluck(:name, :id),
-                           src_numberlist_id: Routing::Numberlist.pluck(:name, :id),
-                           dump_level_id: DumpLevel.pluck(:name, :id),
-                           rateplan_id: Rateplan.pluck(:name, :id),
-                           routing_plan_id: Routing::RoutingPlan.pluck(:name, :id),
-                           lua_script_id: System::LuaScript.pluck(:name, :id)
-                         }
-                       end)
+  acts_as_async_update BatchUpdateForm::CustomersAuth
 
   acts_as_delayed_job_lock
 
@@ -63,6 +40,9 @@ ActiveAdmin.register CustomersAuth do
                  :send_billing_information,
                  [:diversion_policy_name, proc { |row| row.diversion_policy.try(:name) || '' }],
                  :diversion_rewrite_rule, :diversion_rewrite_result,
+                 [:src_number_field_name, proc { |row| row.src_number_field.try(:name) }],
+                 [:src_name_field_name, proc { |row| row.src_name_field.try(:name) }],
+                 [:dst_number_field_name, proc { |row| row.dst_number_field.try(:name) }],
                  :src_name_rewrite_rule, :src_name_rewrite_result,
                  :src_rewrite_rule, :src_rewrite_result,
                  :dst_rewrite_rule, :dst_rewrite_result,
@@ -96,12 +76,15 @@ ActiveAdmin.register CustomersAuth do
                 :radius_accounting_profile_id,
                 :enable_audio_recording,
                 :transport_protocol_id,
-                :tag_action_id, :lua_script_id, tag_action_value: []
+                :tag_action_id, :lua_script_id,
+                :dst_number_field_id, :src_number_field_id, :src_name_field_id,
+                tag_action_value: []
   # , :enable_redirect, :redirect_method, :redirect_to
 
   includes :tag_action, :rateplan, :routing_plan, :gateway, :dump_level, :src_numberlist, :dst_numberlist,
            :pop, :diversion_policy, :radius_auth_profile, :radius_accounting_profile, :customer, :transport_protocol,
-           :lua_script, account: :contractor
+           :lua_script, :src_name_field, :src_number_field, :dst_number_field,
+           account: :contractor
 
   controller do
     def update
@@ -184,14 +167,18 @@ ActiveAdmin.register CustomersAuth do
     column :diversion_rewrite_rule
     column :diversion_rewrite_result
 
+    column :src_name_field
     column :src_name_rewrite_rule
     column :src_name_rewrite_result
 
+    column :src_number_field
     column :src_rewrite_rule
     column :src_rewrite_result
 
+    column :dst_number_field
     column :dst_rewrite_rule
     column :dst_rewrite_result
+
     column :lua_script
 
     column :radius_auth_profile, sortable: 'radius_auth_profiles.name'
@@ -248,6 +235,14 @@ ActiveAdmin.register CustomersAuth do
   filter :to_domain_array_contains, label: I18n.t('activerecord.attributes.customers_auth.to_domain')
   filter :x_yeti_auth_array_contains, label: I18n.t('activerecord.attributes.customers_auth.x_yeti_auth')
   filter :lua_script, input_html: { class: 'chosen' }
+  boolean_filter :require_incoming_auth
+  boolean_filter :check_account_balance
+  filter :gateway_incoming_auth_username,
+         label: 'Incoming Auth Username',
+         as: :string
+  filter :gateway_incoming_auth_password,
+         label: 'Incoming Auth Password',
+         as: :string
 
   form do |f|
     f.semantic_errors *f.object.errors.keys
@@ -309,12 +304,15 @@ ActiveAdmin.register CustomersAuth do
           f.input :diversion_rewrite_rule
           f.input :diversion_rewrite_result
 
+          f.input :src_name_field
           f.input :src_name_rewrite_rule
           f.input :src_name_rewrite_result
 
+          f.input :src_number_field
           f.input :src_rewrite_rule
           f.input :src_rewrite_result
 
+          f.input :dst_number_field
           f.input :dst_rewrite_rule
           f.input :dst_rewrite_result
           f.input :lua_script, input_html: { class: 'chosen' }, include_blank: 'None'
@@ -323,12 +321,12 @@ ActiveAdmin.register CustomersAuth do
 
       tab :radius do
         f.inputs do
-          f.input :radius_auth_profile, hint: 'Select for additional RADIUS authentification'
+          f.input :radius_auth_profile, input_html: { class: 'chosen' }, include_blank: 'None'
           f.input :src_number_radius_rewrite_rule
           f.input :src_number_radius_rewrite_result
           f.input :dst_number_radius_rewrite_rule
           f.input :dst_number_radius_rewrite_result
-          f.input :radius_accounting_profile, hint: 'Accounting profile for LegA'
+          f.input :radius_accounting_profile, input_html: { class: 'chosen' }, include_blank: 'None'
         end
       end
 
@@ -402,13 +400,18 @@ ActiveAdmin.register CustomersAuth do
           row :diversion_rewrite_rule
           row :diversion_rewrite_result
 
+          row :src_name_field
           row :src_name_rewrite_rule
           row :src_name_rewrite_result
 
+          row :src_number_field
           row :src_rewrite_rule
           row :src_rewrite_result
+
+          row :dst_number_field
           row :dst_rewrite_rule
           row :dst_rewrite_result
+
           row :lua_script
         end
       end

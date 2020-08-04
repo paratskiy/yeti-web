@@ -1,7 +1,10 @@
 *.rb~
 public/assets
 swagger/yeti.json
-log/*
+/log/*
+!/log/.keep
+/pgq-processors/log/*
+!/pgq-processors/log/.keep
 .bundle
 .gem
 vendor/bundle
@@ -13,6 +16,7 @@ config/pkgr.yml
 config/yeti_web.yml
 config/policy_roles.yml
 config/pgq_processors.yml
+config/system_info.yml
 coverage
 debian/files
 debian/yeti-web
@@ -25,8 +29,10 @@ tmp
 .kdev4
 .vscode
 /.rvmrc
+/.ruby-version
 pgq-processors/bin
 pgq-processors/vendor/bundle
 pgq-processors/vendor/bundler
 .versions.conf
 pgq-processors/.rspec_status
+/doc/api/

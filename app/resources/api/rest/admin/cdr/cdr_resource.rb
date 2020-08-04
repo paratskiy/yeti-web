@@ -7,9 +7,10 @@ class Api::Rest::Admin::Cdr::CdrResource < BaseResource
 
   module CONST
     ROOT_NAMESPACE_RELATIONS = %w[
-      Rateplan Dialpeer Pop RoutingGroup Destination CustomersAuth Contractor Account Gateway DestinationRatePolicy RoutingPlan
+      Dialpeer Pop RoutingGroup CustomersAuth Contractor Account Gateway RoutingPlan
     ].freeze
     SYSTEM_NAMESPACE_RELATIONS = %w[Country Network].freeze
+    ROUTING_NAMESPACE_RELATIONS = %w[Destination Rateplan DestinationRatePolicy].freeze
     freeze
   end
 
@@ -79,6 +80,8 @@ class Api::Rest::Admin::Cdr::CdrResource < BaseResource
              :legb_rx_bytes,
              :legb_tx_bytes,
              :global_tag,
+             :src_network_id,
+             :src_country_id,
              :dst_country_id,
              :dst_network_id,
              :lega_rx_decode_errs,
@@ -140,22 +143,24 @@ class Api::Rest::Admin::Cdr::CdrResource < BaseResource
              :customer_duration,
              :vendor_duration
 
-  has_one :rateplan
+  has_one :rateplan, class_name: 'Rateplan'
   has_one :dialpeer
   has_one :pop
   has_one :routing_group
   has_one :routing_plan, class_name: 'RoutingPlan'
   has_one :destination, class_name: 'Destination'
   has_one :customer_auth
-  has_one :destination_rate_policy
+  has_one :destination_rate_policy, class_name: 'DestinationRatePolicy'
   has_one :vendor, class_name: 'Contractor'
   has_one :customer, class_name: 'Contractor'
   has_one :customer_acc, class_name: 'Account'
   has_one :vendor_acc, class_name: 'Account'
   has_one :orig_gw, class_name: 'Gateway'
   has_one :term_gw, class_name: 'Gateway'
-  has_one :country, relation_name: :dst_country, foreign_key_on: :dst_country_id
-  has_one :network, relation_name: :dst_network, foreign_key_on: :dst_network_id
+  has_one :dst_country, class_name: 'Country'
+  has_one :dst_network, class_name: 'Network'
+  has_one :src_country, class_name: 'Country'
+  has_one :src_network, class_name: 'Network'
 
   filter :customer_auth_external_id_eq, apply: lambda { |records, values, _options|
     records.where(customer_auth_external_id: values)
@@ -270,6 +275,8 @@ class Api::Rest::Admin::Cdr::CdrResource < BaseResource
   ransack_filter :legb_rx_bytes, type: :number
   ransack_filter :legb_tx_bytes, type: :number
   ransack_filter :global_tag, type: :string
+  ransack_filter :src_country_id, type: :number
+  ransack_filter :src_network_id, type: :number
   ransack_filter :dst_country_id, type: :number
   ransack_filter :dst_network_id, type: :number
   ransack_filter :lega_rx_decode_errs, type: :number
@@ -336,6 +343,8 @@ class Api::Rest::Admin::Cdr::CdrResource < BaseResource
       "Api::Rest::Admin::#{type}Resource".safe_constantize
     elsif type.in?(CONST::SYSTEM_NAMESPACE_RELATIONS)
       "Api::Rest::Admin::System::#{type}Resource".safe_constantize
+    elsif type.in?(CONST::ROUTING_NAMESPACE_RELATIONS)
+      "Api::Rest::Admin::Routing::#{type}Resource".safe_constantize
     else
       super
     end
